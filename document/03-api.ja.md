@@ -15,11 +15,11 @@
 
 ### GETリクエスト
 
-サービスをローカルで立ち上げると、ブラウザで `http://127.0.0.1:9000` からサービスにアクセスすることができるようになりました。
+サービスをローカルで立ち上げると、ブラウザで `http://127.0.0.1:8000` からサービスにアクセスすることができるようになりました。
 次に、curlというコマンドを使ってアクセスをしてみます。 curlがインストールされていない場合、インストールしてください。
 
 ```shell
-curl -X GET 'http://127.0.0.1:9000'
+curl -X GET 'http://127.0.0.1:8000'
 ```
 
 ブラウザと同じように`{"message": "Hello, world!"}` がコンソール上で返ってくることを確認します。
@@ -29,7 +29,7 @@ curl -X GET 'http://127.0.0.1:9000'
 サンプルコードには `/items` というエンドポイントが用意されています。 こちらのエンドポイントをcurlで叩いてみます。
 
 ```shell
-$ curl -X POST 'http://127.0.0.1:9000/items'
+$ curl -X POST 'http://127.0.0.1:8000/items'
 ```
 
 このエンドポイントは、コールに成功すると`{"message": "item received: <name>"}`
@@ -39,14 +39,14 @@ $ curl -X POST 'http://127.0.0.1:9000/items'
 
 ```shell
 $ curl -X POST \
-  --url 'http://localhost:9000/items' \
+  --url 'http://localhost:8000/items' \
   -d name=jacket
 ```
 
 **:beginner: Point**
 
 * POSTとGETのリクエストの違いについて調べてみましょう
-* ブラウザで `http://127.0.0.1:9000/items` にアクセスしても `{"message": "item received: <name>"}`
+* ブラウザで `http://127.0.0.1:8000/items` にアクセスしても `{"message": "item received: <name>"}`
   が返ってこないのはなぜでしょうか？
   * アクセスしたときに返ってくる**HTTPステータスコード**はいくつですか？
   * それはどんな意味をもつステータスコードですか？
@@ -83,13 +83,13 @@ GETで`/items`にアクセスしたときに、登録された商品一覧を取
 ```shell
 # 商品の登録
 $ curl -X POST \
-  --url 'http://localhost:9000/items' \
+  --url 'http://localhost:8000/items' \
   -d 'name=jacket' \
   -d 'category=fashion'
 # /itemsにPOSTリクエストを送った時のレスポンス
 {"message": "item received: jacket"}
 # 登録された商品一覧
-$ curl -X GET 'http://127.0.0.1:9000/items'
+$ curl -X GET 'http://127.0.0.1:8000/items'
 # /itemsにGETリクエストを送った時のレスポンス
 {"items": [{"name": "jacket", "category": "fashion"}, ...]}
 ```
@@ -106,7 +106,7 @@ $ curl -X GET 'http://127.0.0.1:9000/items'
 ```shell
 # ローカルから.jpgをポストする
 curl -X POST \
-  --url 'http://localhost:9000/items' \
+  --url 'http://localhost:8000/items' \
   -F 'name=jacket' \
   -F 'category=fashion' \
   -F 'image=@images/local_image.jpg'
@@ -128,12 +128,12 @@ curl -X POST \
 商品の詳細情報を取得する  `GET /items/<item_id>` というエンドポイントを作成します。
 
 ```shell
-$ curl -X GET 'http://127.0.0.1:9000/items/1'
+$ curl -X GET 'http://127.0.0.1:8000/items/1'
 {"name": "jacket", "category": "fashion", "image_name": "..."}
 ```
 
 ## 6. (Optional) Loggerについて調べる
-`http://127.0.0.1:9000/image/no_image.jpg`にアクセスしてみましょう。
+`http://127.0.0.1:8000/image/no_image.jpg`にアクセスしてみましょう。
 `no image`という画像が帰ってきますが、 コード中にある
 ```
 Image not found: <image path>
