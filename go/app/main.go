@@ -35,14 +35,11 @@ func root(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
-// add items to json
-// {"items": [{"name": "jacket", "category": "fashion"}, ...]}
-// point: errorの処理をちゃんとやること
-func addItemToJson(c echo.Context, item *Item) error {
+func listItems() (*Items, error) {
 	// jsonファイルの読み込み
 	file, err := os.OpenFile("./items.json", os.O_RDWR|os.O_CREATE, 0644) // os.openでも良い。書き込み権限があるか確認
 	if err != nil {
-		return fmt.Errorf("Error opening file:", err)
+		return nil, fmt.Errorf("Error opening file:", err)
 	}
 	defer file.Close()
 
@@ -50,14 +47,25 @@ func addItemToJson(c echo.Context, item *Item) error {
 	var currentItems Items
 	err = json.NewDecoder(file).Decode(&currentItems)
 	if err != nil {
-		return fmt.Errorf("Error decoding JSON:", err)
+		return nil, fmt.Errorf("Error decoding JSON:", err)
+	}
+	return &currentItems, nil
+}
+
+// add items to json
+// {"items": [{"name": "jacket", "category": "fashion"}, ...]}
+// point: errorの処理をちゃんとやること
+func addItemToJson(c echo.Context, item *Item) error {
+	currentItems, err := listItems()
+	if err != nil {
+		return err
 	}
 
 	// itemを追加
 	currentItems.Items = append(currentItems.Items, *item)
 
 	// 書き込み用にファイルを開く
-	file, err = os.Create("./items.json")
+	file, err := os.Create("./items.json")
 	if err != nil {
 		return fmt.Errorf("Error opening file for writing:", err)
 	}
@@ -89,6 +97,15 @@ func addItem(c echo.Context) error {
 	res := Response{Message: message}
 
 	return c.JSON(http.StatusOK, res)
+}
+
+func getItems(c echo.Context) error {
+	currentItems, err := listItems()
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, currentItems)
 }
 
 func getImg(c echo.Context) error {
@@ -126,6 +143,7 @@ func main() {
 	// Routes
 	e.GET("/", root)
 	e.POST("/items", addItem)
+	e.GET("/items", getItems)
 	e.GET("/image/:imageFilename", getImg)
 
 	// Start server
