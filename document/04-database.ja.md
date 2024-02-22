@@ -16,12 +16,14 @@
 
 * SQLiteをインストール
 * dbフォルダに、`mercari.sqlite3` というデータベースファイルを作成
+  * `torichan: db/ % sqlite3 mercari.sqlite3`
 * `mercari.sqlite3`を開き、`items`テーブルを作成 
 *  `items`テーブルは以下のように定義し、スキーマを `db/items.db` に保存します。
   * id: int 商品ごとにユニークなID
   * name: string 商品の名前
   * category: string 商品のカテゴリ
   * image_name: string 画像のパス
+`sqlite> create table items(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, category TEXT, image_name TEXT);`
 
 `items.db`はgitの管理対象にしますが、`mercari.sqlite3`はgitの管理対象として追加しないようにしてください。
 
