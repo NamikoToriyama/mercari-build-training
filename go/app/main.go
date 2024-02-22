@@ -2,8 +2,8 @@ package main
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -16,50 +16,17 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
+	DB_PATH = "../db/mercari.sqlite3"
+
 	ImgDir        = "images"
 	ItemsJsonPath = "./../db/items.json"
 )
 
-type Response struct {
-	Message string `json:"message"`
-}
-
-type Item struct {
-	Name          string `json:"name"`
-	Category      string `json:"category"`
-	ImageFilename string `json:imageFilename`
-}
-
-type Items struct {
-	Items []Item `json:"items"`
-}
-
-func root(c echo.Context) error {
-	res := Response{Message: "Hello, world!"}
-	return c.JSON(http.StatusOK, res)
-}
-
-func listItems() (*Items, error) {
-	// jsonファイルの読み込み
-	file, err := os.OpenFile(ItemsJsonPath, os.O_RDWR|os.O_CREATE, 0644) // os.openでも良い。書き込み権限があるか確認
-	if err != nil {
-		return nil, fmt.Errorf("Error opening file:", err)
-	}
-	defer file.Close()
-
-	// jsonファイルをdecode
-	var currentItems Items
-	err = json.NewDecoder(file).Decode(&currentItems)
-	if err != nil {
-		return nil, fmt.Errorf("Error decoding JSON:", err)
-	}
-	return &currentItems, nil
-}
-
-func hashString(input string) string {
+func HashString(input string) string {
 	// https://pkg.go.dev/crypto/sha256
 	hash := sha256.New()
 	hash.Write([]byte(input))
@@ -68,7 +35,7 @@ func hashString(input string) string {
 	return hex.EncodeToString(hashed)
 }
 
-func storeImage(image *multipart.FileHeader, imageName string) error {
+func StoreImage(image *multipart.FileHeader, imageName string) error {
 	// 取得した画像をファイルに保存
 	file, err := image.Open()
 	if err != nil {
@@ -93,29 +60,41 @@ func storeImage(image *multipart.FileHeader, imageName string) error {
 	return nil
 }
 
-// add items to json
-// {"items": [{"name": "jacket", "category": "fashion"}, ...]}
-// point: errorの処理をちゃんとやること
-func addItemToJson(c echo.Context, item *Item) error {
-	currentItems, err := listItems()
+type Response struct {
+	Message string `json:"message"`
+}
+
+type Item struct {
+	ID            int32
+	Name          string `json:"name"`
+	Category      string `json:"category"`
+	ImageFileName string `json:"imageFileName"`
+}
+
+func root(c echo.Context) error {
+	res := Response{Message: "Hello, world!"}
+	return c.JSON(http.StatusOK, res)
+}
+
+func writeItemToDB(item *Item) error {
+	// sqlite3 DB open
+	db, err := sql.Open("sqlite3", DB_PATH)
 	if err != nil {
 		return err
 	}
+	defer db.Close()
+
 	// itemを追加
-	currentItems.Items = append(currentItems.Items, *item)
-
-	// 書き込み用にファイルを開く
-	file, err := os.Create(ItemsJsonPath)
+	stmt, err := db.Prepare("insert into items(name, category, image_name) values(?, ?, ?);")
 	if err != nil {
-		return fmt.Errorf("Error opening file for writing:", err)
+		log.Fatal(err)
 	}
-	defer file.Close()
-
-	// jsonファイルに書き込み
-	err = json.NewEncoder(file).Encode(currentItems)
+	defer stmt.Close()
+	_, err = stmt.Exec(item.Name, item.Category, item.ImageFileName)
 	if err != nil {
-		return fmt.Errorf("Error encoding JSON:", err)
+		log.Fatal(err)
 	}
+
 	return nil
 }
 
@@ -124,15 +103,16 @@ func addItem(c echo.Context) error {
 	name := c.FormValue("name")
 	category := c.FormValue("category")
 	image, err := c.FormFile("image")
+
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, fmt.Sprintf("failed c.FormFile: %s", err.Error()))
 	}
 
 	// ファイル名をhash化
-	hashedImageName := hashString(image.Filename)
+	hashedImageName := HashString(image.Filename)
 
 	// 画像として保存
-	if err := storeImage(image, hashedImageName); err != nil {
+	if err := StoreImage(image, hashedImageName); err != nil {
 		return c.JSON(http.StatusBadRequest, fmt.Sprintf("failed storeImage: %s", err.Error()))
 	}
 
@@ -140,11 +120,11 @@ func addItem(c echo.Context) error {
 	item := &Item{
 		Name:          name,
 		Category:      category,
-		ImageFilename: hashedImageName,
+		ImageFileName: hashedImageName,
 	}
 
-	if err := addItemToJson(c, item); err != nil {
-		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+	if err := writeItemToDB(item); err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Message: "writeItemToDB" + err.Error()})
 	}
 
 	message := fmt.Sprintf("item received: %s category received: %s image received: %s", name, category, hashedImageName)
@@ -154,29 +134,52 @@ func addItem(c echo.Context) error {
 }
 
 func getItems(c echo.Context) error {
-	currentItems, err := listItems()
+	db, err := sql.Open("sqlite3", DB_PATH)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT * FROM items")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+	}
+	defer rows.Close()
+
+	var items []Item
+	for rows.Next() {
+		var item Item
+		err := rows.Scan(&item.ID, &item.Name, &item.Category, &item.ImageFileName)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+		}
+		items = append(items, item)
+	}
+
+	return c.JSON(http.StatusOK, items)
+}
+
+func getItem(c echo.Context) error {
+	str_id := c.Param("id")
+	// 文字列を整数に変換
+	id, err := strconv.Atoi(str_id)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, "invalid id")
+	}
+
+	db, err := sql.Open("sqlite3", DB_PATH)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+	}
+	defer db.Close()
+
+	var item Item
+	err = db.QueryRow("SELECT * FROM items where id = ?", id).Scan(&item.ID, &item.Name, &item.Category, &item.ImageFileName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, currentItems)
-}
-
-func getItem(c echo.Context) error {
-	items, err := listItems()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, fmt.Sprintf("failed GetItems: %s", err.Error()))
-	}
-
-	str_id := c.Param("id")
-	// 文字列を整数に変換
-	id, err := strconv.Atoi(str_id)
-	fmt.Println("Error opening file:", id, len(items.Items))
-	if err != nil || id < 0 || len(items.Items) < id {
-		return c.JSON(http.StatusBadRequest, "invalid id")
-	}
-
-	return c.JSON(http.StatusOK, items.Items[id-1])
+	return c.JSON(http.StatusOK, item)
 }
 
 func getImg(c echo.Context) error {
