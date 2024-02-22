@@ -182,6 +182,34 @@ func getItem(c echo.Context) error {
 	return c.JSON(http.StatusOK, item)
 }
 
+func searchItem(c echo.Context) error {
+	keyword := c.QueryParam("keyword")
+
+	db, err := sql.Open("sqlite3", DB_PATH)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT * FROM items WHERE name LIKE CONCAT('%', ?, '%')", keyword)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+	}
+	defer rows.Close()
+
+	var items []Item
+	for rows.Next() {
+		var item Item
+		err := rows.Scan(&item.ID, &item.Name, &item.Category, &item.ImageFileName)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+		}
+		items = append(items, item)
+	}
+
+	return c.JSON(http.StatusOK, items)
+}
+
 func getImg(c echo.Context) error {
 	// Create image path
 	imgPath := path.Join(ImgDir, c.Param("imageFilename"))
@@ -219,6 +247,7 @@ func main() {
 	e.POST("/items", addItem)
 	e.GET("/items", getItems)
 	e.GET("/items/:id", getItem)
+	e.GET("/search", searchItem)
 	e.GET("/image/:imageFilename", getImg)
 
 	// Start server
