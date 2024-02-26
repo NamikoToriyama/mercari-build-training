@@ -7,7 +7,7 @@ interface Item {
   image_name: string;
 };
 
-const server = process.env.REACT_APP_API_URL || 'http://127.0.0.1:9000';
+const server = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 const placeholderImage = process.env.PUBLIC_URL + '/logo192.png';
 
 interface Prop {
@@ -16,8 +16,8 @@ interface Prop {
 }
 
 export const ItemList: React.FC<Prop> = (props) => {
-  const { reload = true, onLoadCompleted } = props;
   const [items, setItems] = useState<Item[]>([])
+  const { reload = true, onLoadCompleted } = props;
   const fetchItems = () => {
     fetch(server.concat('/items'),
       {
@@ -31,7 +31,7 @@ export const ItemList: React.FC<Prop> = (props) => {
       .then(response => response.json())
       .then(data => {
         console.log('GET success:', data);
-        setItems(data.items);
+        setItems(data)
         onLoadCompleted && onLoadCompleted();
       })
       .catch(error => {
