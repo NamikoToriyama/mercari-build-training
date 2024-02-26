@@ -85,7 +85,7 @@ func writeItemToDB(item *Item) error {
 	defer db.Close()
 
 	// itemを追加
-	stmt, err := db.Prepare("insert into items(name, category, image_name) values(?, ?, ?);")
+	stmt, err := db.Prepare("insert into new_items(name, category, image_name) values(?, ?, ?);")
 	if err != nil {
 		log.Fatal(err)
 	}
