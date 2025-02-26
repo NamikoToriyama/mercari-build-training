@@ -1,0 +1,15 @@
+[
+    {
+        "name": "jacket",
+        "category": "fashion"
+    },
+    {
+        "name": "pokemon",
+        "category": "game"
+    },
+    {
+        "name": "jacket",
+        "category": "fashion",
+        "image": "778caf7d8d81a7ff8041003ef01afe00a85750d15086a3cb267fd8d23d8dd285.png"
+    }
+]
