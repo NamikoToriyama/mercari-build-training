@@ -1,4 +1,11 @@
 
+# 起動
+
+```
+source .venv/bin/activate
+$ uvicorn main:app --reload --port 9000
+```
+
 # 3-3 商品一覧を取得する
 
 商品の取得
