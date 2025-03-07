@@ -26,8 +26,6 @@ def get_db():
     finally:
         conn.close()
 
-
-################## for STEP 4-1: ####################
 import json
 JSON_FILE = 'items.json'
 # Function to read the JSON file
@@ -43,9 +41,6 @@ def write_json_file(data):
     with open(JSON_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
-######################################################
-
-################## for STEP 4-4: #####################
 import hashlib
 def hash_image(image_file: UploadFile) -> str:
     try:
@@ -62,8 +57,6 @@ def hash_image(image_file: UploadFile) -> str:
     except Exception as e:
         raise RuntimeError(f"An unexpected error occurred: {e}")
 
-######################################################
-
 # STEP 5-1: set up the database connection
 def setup_database():
     pass
@@ -78,7 +71,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 logger = logging.getLogger("uvicorn")
-# For STEP 4-6
 logger.level = logging.DEBUG
 images = pathlib.Path(__file__).parent.resolve() / "images"
 origins = [os.environ.get("FRONT_URL", "http://localhost:3000")]
@@ -114,10 +106,8 @@ def add_item(
 ):
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
-    # for STEP 4-2
     if not category:
         raise HTTPException(status_code=400, detail="category is required")
-    # for STEP 4-4
     if not image:
         raise HTTPException(status_code=400, detail="image is required")
 
@@ -127,11 +117,9 @@ def add_item(
 
 @app.get("/items")
 def get_items():
-    # For STEP 4-3
     all_data = read_json_file()
     return all_data
 
-# For STEP 4-5
 @app.get("/items/{item_id}")
 def get_item_by_id(item_id):
     item_id_int = int(item_id)
@@ -163,13 +151,5 @@ class Item(BaseModel):
 
 def insert_item(item: Item):
     current_data = read_json_file()
-
-    ################################ for STEP 4-2 ################################
-    # current_data["items"].append({"name": item.name, "category": item.category})
-    #############################################################################
-
-    ################################ for STEP 4-4 ################################
-    current_data["items"].append({"name": item.name, "category": item.category, "image_name": item.image})
-    #############################################################################
-    
+    current_data["items"].append({"name": item.name, "category": item.category, "image_name": item.image})    
     write_json_file(current_data)
