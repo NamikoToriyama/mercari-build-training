@@ -26,20 +26,36 @@ def get_db():
     finally:
         conn.close()
 
-import json
-JSON_FILE = 'items.json'
-# Function to read the JSON file
-def read_json_file() -> Dict[str, List[Dict[str,str]]]:
-    if not os.path.exists(JSON_FILE):
-        with open(JSON_FILE, 'w') as f:
-            json.dump({"items": []}, f)  # Initialize with an empty list
-    with open(JSON_FILE, 'r') as f:
-        return json.load(f)
+def get_items_from_database(db: sqlite3.Connection):
+    cursor = db.cursor()
+    # Query the Items table
+    query = """
+    SELECT items.name, items.name, image_name 
+    FROM items 
+    """
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    items_list = [{"name": name, "category": category, "image_name": image_name} for name, category, image_name in rows]
+    result = {"items": items_list}
+    cursor.close()
+    
+    return result
 
-# Function to write data to the JSON file
-def write_json_file(data):
-    with open(JSON_FILE, 'w') as f:
-        json.dump(data, f, indent=4)
+def get_items_from_database_by_id(id: int, db: sqlite3.Connection) -> Dict[str, List[Dict[str,str]]]:
+    cursor = db.cursor()
+    # Query the Items table
+    query = """
+    SELECT items.name, items.name, image_name 
+    FROM items
+    WHERE items.id = ?
+    """
+    cursor.execute(query, (id,))
+    rows = cursor.fetchall()
+    items_list = [{"name": name, "category": category, "image_name": image_name} for name, category, image_name in rows]
+    result = {"items": items_list}
+    cursor.close()
+    
+    return result
 
 import hashlib
 def hash_image(image_file: UploadFile) -> str:
@@ -59,7 +75,13 @@ def hash_image(image_file: UploadFile) -> str:
 
 # STEP 5-1: set up the database connection
 def setup_database():
-    pass
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+    sql_file = pathlib.Path(__file__).parent.resolve() / "db" / "items.sql"
+    with open(sql_file, "r") as f:
+        cursor.executescript(f.read())
+    conn.commit()
+    conn.close()
 
 
 @asynccontextmanager
@@ -112,18 +134,18 @@ def add_item(
         raise HTTPException(status_code=400, detail="image is required")
 
     hashed_image = hash_image(image)
-    insert_item(Item(name=name, category=category, image=hashed_image))
+    insert_item_db(Item(name=name, category=category, image=hashed_image))
     return AddItemResponse(**{"message": f"item received: {name}"})
 
 @app.get("/items")
 def get_items():
-    all_data = read_json_file()
+    all_data = get_items_from_database(db)
     return all_data
 
 @app.get("/items/{item_id}")
 def get_item_by_id(item_id):
     item_id_int = int(item_id)
-    all_data = read_json_file()
+    all_data = get_items_from_database_by_id()
     item = all_data["items"][item_id_int - 1]
     return item
 
@@ -149,7 +171,14 @@ class Item(BaseModel):
     image: str
 
 
-def insert_item(item: Item):
-    current_data = read_json_file()
-    current_data["items"].append({"name": item.name, "category": item.category, "image_name": item.image})    
-    write_json_file(current_data)
+def insert_item_db(item: Item, db: sqlite3.Connection) -> int:
+    cursor = db.cursor()
+    query = """
+        INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?);
+        """
+    cursor.execute(query, (item.name, item.category, item.image))
+
+    db.commit()
+
+    cursor.close()
+    return cursor.lastrowid
