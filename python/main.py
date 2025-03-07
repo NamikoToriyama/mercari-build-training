@@ -30,8 +30,10 @@ def get_items_from_database(db: sqlite3.Connection):
     cursor = db.cursor()
     # Query the Items table
     query = """
-    SELECT items.name, items.name, image_name 
+    SELECT items.name, categories.name AS category, image_name 
     FROM items 
+    JOIN categories
+    ON category_id = categories.id
     """
     cursor.execute(query)
     rows = cursor.fetchall()
@@ -45,8 +47,10 @@ def get_items_from_database_by_id(id: int, db: sqlite3.Connection) -> Dict[str, 
     cursor = db.cursor()
     # Query the Items table
     query = """
-    SELECT items.name, items.name, image_name 
+    SELECT items.name, categories.name AS category, image_name 
     FROM items
+    JOIN categories
+    ON category_id = categories.id
     WHERE items.id = ?
     """
     cursor.execute(query, (id,))
@@ -168,9 +172,11 @@ async def get_image(image_name):
 def search_keyword(keyword: str = Query(...), db: sqlite3.Connection = Depends(get_db)):
     cursor = db.cursor()
     query = """
-    SELECT name, categories.name, image_name 
+    SELECT items.name AS name, categories.name AS category, image_name 
     FROM items 
-    WHERE name LIKE ?
+    JOIN categories
+    ON category_id = categories.id 
+    WHERE items.name LIKE ?
     """
     pattern = f"%{keyword}%"
     cursor.execute(query, (pattern,))
@@ -188,11 +194,21 @@ class Item(BaseModel):
 
 def insert_item_db(item: Item, db: sqlite3.Connection) -> int:
     cursor = db.cursor()
+    # Query the category table
+    query_category = "SELECT id FROM categories WHERE name = ?"
+    cursor.execute(query_category, (item.category,))
+    rows = cursor.fetchone()
+    if rows is None:
+        insert_query_category = "INSERT INTO categories (name) VALUES (?)"
+        cursor.execute(insert_query_category, (item.category,))
+        category_id = cursor.lastrowid
+    else:
+        category_id = rows[0]
+
     query = """
         INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?);
         """
-    cursor.execute(query, (item.name, item.category, item.image))
-
+    cursor.execute(query, (item.name, category_id, item.image))
     db.commit()
 
     cursor.close()
