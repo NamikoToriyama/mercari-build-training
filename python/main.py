@@ -164,6 +164,21 @@ async def get_image(image_name):
 
     return FileResponse(image)
 
+@app.get("/search")
+def search_keyword(keyword: str = Query(...), db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    query = """
+    SELECT name, categories.name, image_name 
+    FROM items 
+    WHERE name LIKE ?
+    """
+    pattern = f"%{keyword}%"
+    cursor.execute(query, (pattern,))
+    rows = cursor.fetchall()
+    items_list = [{"name": name, "category": category, "image_name": image_name} for name, category, image_name in rows]
+    result = {"items": items_list}
+    cursor.close()
+    return result
 
 class Item(BaseModel):
     name: str
