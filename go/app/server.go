@@ -79,7 +79,6 @@ func (s *Handlers) Hello(w http.ResponseWriter, r *http.Request) {
 type AddItemRequest struct {
 	Name string `form:"name"`
 	// Category string `form:"category"` // STEP 4-2: add a category field
-	Category string `form:"category"`
 	Image []byte `form:"image"` // STEP 4-4: add an image field
 }
 
@@ -92,7 +91,6 @@ func parseAddItemRequest(r *http.Request) (*AddItemRequest, error) {
 	req := &AddItemRequest{
 		Name: r.FormValue("name"),
 		// STEP 4-2: add a category field
-		Category: r.FormValue("category"),
 	}
 
 	// STEP 4-4: add an image field
@@ -103,10 +101,6 @@ func parseAddItemRequest(r *http.Request) (*AddItemRequest, error) {
 	}
 
 	// STEP 4-2: validate the category field
-	if req.Category == "" {
-		return nil, errors.New("category is required")
-	}
-
 	// STEP 4-4: validate the image field
 	return req, nil
 }
@@ -132,16 +126,12 @@ func (s *Handlers) AddItem(w http.ResponseWriter, r *http.Request) {
 	item := &Item{
 		Name: req.Name,
 		// STEP 4-2: add a category field
-		Category: req.Category,
 		// STEP 4-4: add an image field
 	}
 	message := fmt.Sprintf("item received: %s", item.Name)
 	slog.Info(message)
 
 	// STEP 4-2: add an implementation to store an image
-	message = fmt.Sprintf("item received: %s", item.Category)
-	slog.Info(message)
-
 	err = s.itemRepo.Insert(ctx, item)
 	if err != nil {
 		slog.Error("failed to store item: ", "error", err)
