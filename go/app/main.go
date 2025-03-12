@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -20,17 +21,71 @@ type Response struct {
 	Message string `json:"message"`
 }
 
+type Item struct {
+	Name     string `json:"name"`
+	Category string `json:"category"`
+}
+
+type Items struct {
+	Items []Item `json:"items"`
+}
+
 func root(c echo.Context) error {
 	res := Response{Message: "Hello, world!"}
 	return c.JSON(http.StatusOK, res)
 }
 
+// add items to json
+// {"items": [{"name": "jacket", "category": "fashion"}, ...]}
+// point: errorの処理をちゃんとやること
+func addItemToJson(c echo.Context, item *Item) error {
+	// jsonファイルの読み込み
+	file, err := os.OpenFile("./items.json", os.O_RDWR|os.O_CREATE, 0644) // os.openでも良い。書き込み権限があるか確認
+	if err != nil {
+		return fmt.Errorf("Error opening file:", err)
+	}
+	defer file.Close()
+
+	// jsonファイルをdecode
+	var currentItems Items
+	err = json.NewDecoder(file).Decode(&currentItems)
+	if err != nil {
+		return fmt.Errorf("Error decoding JSON:", err)
+	}
+
+	// itemを追加
+	currentItems.Items = append(currentItems.Items, *item)
+
+	// 書き込み用にファイルを開く
+	file, err = os.Create("./items.json")
+	if err != nil {
+		return fmt.Errorf("Error opening file for writing:", err)
+	}
+	defer file.Close()
+
+	// jsonファイルに書き込み
+	err = json.NewEncoder(file).Encode(currentItems)
+	if err != nil {
+		return fmt.Errorf("Error encoding JSON:", err)
+	}
+	return nil
+}
+
 func addItem(c echo.Context) error {
 	// Get form data
 	name := c.FormValue("name")
-	c.Logger().Infof("Receive item: %s", name)
+	category := c.FormValue("category")
+	c.Logger().Infof("Receive item: %s category: %s", name, category)
+	item := &Item{
+		Name:     name,
+		Category: category,
+	}
 
-	message := fmt.Sprintf("item received: %s", name)
+	if err := addItemToJson(c, item); err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Message: err.Error()})
+	}
+
+	message := fmt.Sprintf("item received: %s \n category received: %s", name, category)
 	res := Response{Message: message}
 
 	return c.JSON(http.StatusOK, res)
